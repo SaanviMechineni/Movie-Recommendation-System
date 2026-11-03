@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>MovieRec - My Watchlist</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 32 32%27%3E%3Crect width=%2732%27 height=%2732%27 rx=%277%27 fill=%27%23ff4d6d%27/%3E%3Cpath d=%27M12 9l11 7-11 7z%27 fill=%27white%27/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <main>
+    <h1>My Watchlist</h1>
+    <p class="subtitle">Movies you saved. They are also used to personalise your recommendations.</p>
+    <div id="results"></div>
+  </main>
+
+  <script src="js/app.js"></script>
+  <script>
+    App.get('favorites').then(function (movies) {
+      var box = document.getElementById('results');
+      App.renderGrid(box, movies, 'Your watchlist is empty. Tap the heart on any movie to save it.');
+      if (!movies.length) {
+        box.firstChild.appendChild(App.el('p', {}, App.el('a', { class: 'btn primary', href: 'index.html', text: 'Browse movies' })));
+      }
+    }).catch(function (e) {
+      document.getElementById('results').textContent = 'Could not load watchlist: ' + e.message;
+    });
+  </script>
+</body>
+</html>

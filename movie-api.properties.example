@@ -1,0 +1,4 @@
+# Copy this file to  movie-api.properties  (same folder as run.bat) and paste your key.
+# Get a free key: https://www.themoviedb.org/settings/api  (account -> Settings -> API)
+# Either the "API Key" (32 characters) or the "API Read Access Token" (starts with eyJ) works.
+MOVIE_API_KEY=PASTE_YOUR_KEY_HERE

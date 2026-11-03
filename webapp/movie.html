@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>MovieRec - Movie Details</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 32 32%27%3E%3Crect width=%2732%27 height=%2732%27 rx=%277%27 fill=%27%23ff4d6d%27/%3E%3Cpath d=%27M12 9l11 7-11 7z%27 fill=%27white%27/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <main id="page"></main>
+
+  <script src="js/app.js"></script>
+  <script>
+    (function () {
+      var el = App.el;
+      var page = document.getElementById('page');
+      var id = new URLSearchParams(location.search).get('id');
+
+      function showError(msg) {
+        page.textContent = '';
+        page.appendChild(el('div', { class: 'empty', text: msg }));
+        page.appendChild(el('p', {}, el('a', { class: 'btn', href: 'index.html', text: '← Back to browse' })));
+      }
+
+      function starRow(m) {
+        var box = el('div', { class: 'stars' });
+        var label = el('span', { class: 'meta' });
+        var buttons = [];
+
+        function paint(n) {
+          buttons.forEach(function (b, i) { b.classList.toggle('on', i < n); });
+        }
+        function text() {
+          label.textContent = m.userRating ? ' You rated it ' + m.userRating + '/5' : ' Not rated yet';
+        }
+        for (var i = 1; i <= 5; i++) {
+          (function (n) {
+            var b = el('button', { class: 'star', type: 'button', 'aria-label': n + ' stars', text: '★' });
+            b.addEventListener('mouseenter', function () { paint(n); });
+            b.addEventListener('mouseleave', function () { paint(m.userRating); });
+            b.addEventListener('click', function () {
+              var stars = (m.userRating === n) ? 0 : n;   // clicking the same star again clears it
+              App.post('rate', { id: m.id, stars: stars }).then(function (r) {
+                m.userRating = r.userRating;
+                paint(m.userRating); text();
+                App.toast(stars ? 'Rated ' + stars + '/5' : 'Rating removed');
+              }).catch(function (e) { App.toast(e.message); });
+            });
+            buttons.push(b);
+            box.appendChild(b);
+          })(i);
+        }
+        paint(m.userRating); text();
+        return el('div', { class: 'rate-box' }, el('strong', { text: 'Rate this movie ' }), box, label);
+      }
+
+      function render(data) {
+        var m = data.movie;
+        document.title = 'MovieRec - ' + m.title;
+        page.textContent = '';
+
+        var favBtn = el('button', { class: 'btn primary', type: 'button' });
+        function favText() { favBtn.textContent = m.favorite ? '♥ In your watchlist (remove)' : '♡ Add to watchlist'; }
+        favText();
+        favBtn.addEventListener('click', function () { App.toggleFavorite(m).then(favText); });
+
+        var poster = App.posterBox(m, true);
+
+        var info = el('div', {},
+          el('h1', { text: m.title }),
+          el('div', { class: 'facts', text: [App.yearText(m), m.language, m.rating > 0 ? '★ ' + m.rating.toFixed(1) + '/10' : 'Not rated yet online'].join(' · ') }),
+          App.tags(m.genres),
+          el('p', { text: m.description || 'No overview available.' }),
+          m.director ? el('div', { class: 'cast' }, el('strong', { text: 'Director: ' }), m.director) : null,
+          m.cast.length ? el('div', { class: 'cast' }, el('strong', { text: 'Cast: ' }), m.cast.join(', ')) : null,
+          m.keywords.length ? el('div', { class: 'cast' }, el('strong', { text: 'Keywords: ' }), m.keywords.join(', ')) : null,
+          starRow(m),
+          el('div', { class: 'actions' }, favBtn,
+            el('a', { class: 'btn', href: 'index.html', text: '← Back to browse' })));
+
+        page.appendChild(el('div', { class: 'detail' }, poster, info));
+        page.appendChild(el('h2', { class: 'section-title', text: 'Similar movies' }));
+        var sim = el('div');
+        page.appendChild(sim);
+        App.renderGrid(sim, data.similar, 'No similar movies found.');
+      }
+
+      if (!id) { showError('No movie selected.'); return; }
+      App.get('movie', { id: id }).then(render).catch(function (e) { showError(e.message); });
+    })();
+  </script>
+</body>
+</html>

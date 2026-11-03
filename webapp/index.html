@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>MovieRec - Browse Movies</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 32 32%27%3E%3Crect width=%2732%27 height=%2732%27 rx=%277%27 fill=%27%23ff4d6d%27/%3E%3Cpath d=%27M12 9l11 7-11 7z%27 fill=%27white%27/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <main>
+    <h1>Browse Movies</h1>
+    <p class="subtitle">Search any movie in the world, filter by genre or language, and build your watchlist.</p>
+
+    <form class="filters" id="filters" onsubmit="return false">
+      <div class="search-wrap">
+        <input type="search" id="q" placeholder="Search any movie, e.g. Home Alone" aria-label="Search movies" autocomplete="off">
+        <button type="button" class="clear-btn" id="clear" aria-label="Clear search" title="Clear search" hidden>&times;</button>
+      </div>
+      <select id="genre" aria-label="Genre"><option value="">All genres</option></select>
+      <select id="language" aria-label="Language"><option value="">All languages</option></select>
+      <select id="sort" aria-label="Sort library by">
+        <option value="rating">Top rated</option>
+        <option value="year">Newest</option>
+        <option value="title">Title A-Z</option>
+      </select>
+      <button type="button" class="btn" id="reset">Reset</button>
+    </form>
+
+    <p class="result-count" id="count" aria-live="polite"></p>
+    <div id="notice"></div>
+    <div id="results"></div>
+  </main>
+
+  <script src="js/app.js"></script>
+  <script>
+    (function () {
+      var el = App.el;
+      var q = document.getElementById('q');
+      var clearBtn = document.getElementById('clear');
+      var genre = document.getElementById('genre');
+      var language = document.getElementById('language');
+      var sort = document.getElementById('sort');
+      var results = document.getElementById('results');
+      var notice = document.getElementById('notice');
+      var count = document.getElementById('count');
+      var timer;
+      var controller = null;      // lets us cancel an older search when a newer one starts
+
+      function option(select, value) { select.appendChild(el('option', { value: value, text: value })); }
+
+      function plural(n, word) { return n + ' ' + word + (n === 1 ? '' : 's'); }
+
+      function showSearching() {
+        results.textContent = '';
+        results.appendChild(el('div', { class: 'status', role: 'status' }, el('div', { class: 'spinner' }), el('span', { text: 'Searching...' })));
+        count.textContent = '';
+      }
+
+      function section(title, movies) {
+        var wrap = el('div');
+        if (title) wrap.appendChild(el('h2', { class: 'section-heading', text: title }));
+        var grid = el('div');
+        App.renderGrid(grid, movies, '');
+        wrap.appendChild(grid);
+        return wrap;
+      }
+
+      function showNone() {
+        var term = q.value.trim();
+        var box = el('div', { class: 'empty' },
+          el('div', { text: term ? 'No movies found for “' + term + '”.' : 'No movies match these filters.' }),
+          el('div', { class: 'meta', text: 'Check the spelling, try a shorter title, or change the filters.' }));
+        var again = el('button', { class: 'btn', type: 'button', text: term ? 'Clear search' : 'Reset filters' });
+        again.addEventListener('click', reset);
+        box.appendChild(again);
+        results.appendChild(box);
+      }
+
+      function render(data) {
+        var term = data.query;
+        var nLocal = data.local.length, nOnline = data.online.length;
+        results.textContent = '';
+        notice.textContent = '';
+
+        if (data.api.status === 'error') {
+          notice.appendChild(el('div', { class: 'banner error', role: 'alert', text: 'Online search failed: ' + data.api.message + (nLocal ? ' Showing library results only.' : '') }));
+        } else if (data.api.status === 'disabled' && term.length >= 2) {
+          notice.appendChild(el('div', { class: 'banner', text: data.api.message }));
+        }
+
+        count.textContent = (nLocal + nOnline) === 0 ? '' : plural(nLocal + nOnline, 'movie') + ' found';
+        if (nLocal + nOnline === 0) {
+          showNone();
+          return;
+        }
+        var headings = term.length >= 2 && nOnline > 0;
+        if (nLocal) results.appendChild(section(headings ? 'In the MovieRec library (' + nLocal + ')' : '', data.local));
+        if (nOnline) results.appendChild(section('More results from the online movie database (' + nOnline + ')', data.online));
+      }
+
+      function load() {
+        if (controller) controller.abort();
+        controller = new AbortController();
+        var mine = controller;
+        clearBtn.hidden = !q.value;
+        if (q.value.trim().length >= 2) showSearching();
+        App.get('search', { q: q.value.trim(), genre: genre.value, language: language.value, sort: sort.value }, mine.signal)
+          .then(function (data) { if (controller === mine) render(data); })
+          .catch(function (e) {
+            if (e.name === 'AbortError') return;
+            results.textContent = '';
+            notice.textContent = '';
+            count.textContent = '';
+            results.appendChild(el('div', { class: 'empty', role: 'alert', text: 'Could not load movies: ' + e.message }));
+          });
+      }
+
+      function reset() {
+        q.value = ''; genre.value = ''; language.value = ''; sort.value = 'rating';
+        load();
+        q.focus();
+      }
+
+      App.get('movies', { meta: 1 }).then(function (meta) {
+        meta.genres.forEach(function (g) { option(genre, g); });
+        meta.languages.forEach(function (l) { option(language, l); });
+        // allow links like index.html?genre=Drama or index.html?q=home+alone
+        var params = new URLSearchParams(location.search);
+        if (params.get('genre')) genre.value = params.get('genre');
+        if (params.get('language')) language.value = params.get('language');
+        if (params.get('q')) q.value = params.get('q');
+        load();
+      });
+
+      q.addEventListener('input', function () {
+        clearBtn.hidden = !q.value;
+        clearTimeout(timer);
+        timer = setTimeout(load, 300);
+      });
+      q.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter') { clearTimeout(timer); load(); }
+        if (e.key === 'Escape' && q.value) { q.value = ''; load(); }
+      });
+      clearBtn.addEventListener('click', function () { q.value = ''; load(); q.focus(); });
+      genre.addEventListener('change', load);
+      language.addEventListener('change', load);
+      sort.addEventListener('change', load);
+      document.getElementById('reset').addEventListener('click', reset);
+    })();
+  </script>
+</body>
+</html>

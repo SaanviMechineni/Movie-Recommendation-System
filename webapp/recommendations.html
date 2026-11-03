@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>MovieRec - Recommended For You</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 32 32%27%3E%3Crect width=%2732%27 height=%2732%27 rx=%277%27 fill=%27%23ff4d6d%27/%3E%3Cpath d=%27M12 9l11 7-11 7z%27 fill=%27white%27/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <main>
+    <h1>Recommended For You</h1>
+    <p class="subtitle">Content-based picks using genre (50%), keywords (25%), movie rating (15%) and release year (10%).</p>
+    <div id="banner"></div>
+    <div id="results"></div>
+  </main>
+
+  <script src="js/app.js"></script>
+  <script>
+    App.get('recommendations').then(function (data) {
+      var banner = document.getElementById('banner');
+      if (!data.personalised) {
+        banner.appendChild(App.el('div', { class: 'banner', text: 'You have not added favourites or ratings yet, so these are the top-rated movies. Heart or rate a few movies to get personalised picks.' }));
+      }
+      App.renderGrid(document.getElementById('results'), data.results, 'No recommendations available.');
+    }).catch(function (e) {
+      document.getElementById('results').textContent = 'Could not load recommendations: ' + e.message;
+    });
+  </script>
+</body>
+</html>
